@@ -1,0 +1,266 @@
+#!/usr/bin/env python
+
+__version__ = "0.2"
+__author__ = "xrado"
+
+import sys,os
+
+## Windows 
+if sys.platform == 'win32':
+	import dbhash
+	import _winreg
+	import msvcrt
+	try:
+		k = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, "Software\\GTK\\2.0")
+	except EnvironmentError:
+		print "You must install the Gtk+ 2 Runtime Environment to run this program"
+		while not msvcrt.kbhit():
+			pass
+		sys.exit(1)
+	else:
+		gtkdir = _winreg.QueryValueEx(k, "Path")
+		os.environ['PATH'] += ";%s/lib;%s/bin" % (gtkdir[0], gtkdir[0])
+
+## Linux
+if sys.platform.find('linux') != -1:
+	path = os.path.expanduser('~')+'/.pygtranslator'
+	if not os.path.isdir(path):
+		os.mkdir(path)
+		file = open(path+'/pygtranslator.ini', 'w')
+		file.write("[general]\nfrom = 7\nto = 9")
+		file.close()
+_ini = os.path.expanduser('~')+'/.pygtranslator/pygtranslator.ini'
+if not os.path.exists(_ini): _ini = "pygtranslator.ini"
+
+## Other paths
+_glade = "/usr/share/pygtranslator/pygtranslator.glade"
+if not os.path.exists(_glade): _glade = "pygtranslator.glade"
+_icon = "/usr/share/pixmaps/pygtranslator.png"
+if not os.path.exists(_icon): _icon = "pygtranslator.png"
+
+try:
+	import gtk
+	import gtk.glade
+	import pygtk
+	pygtk.require("2.0")
+except:
+	print "GTK2 runtime required"
+	sys.exit(1)
+
+import gobject,gc,httplib,ConfigParser
+from urlparse import urlparse
+from urllib import urlencode
+import socket
+socket.setdefaulttimeout(10)
+
+config = ConfigParser.ConfigParser()
+config.read(_ini)
+
+#httplib.HTTPConnection.debuglevel = 1  
+
+class TrayIcon(gtk.StatusIcon):
+	def __init__(self, parent):
+		global _icon
+		self.parent = parent
+		gtk.StatusIcon.__init__(self)
+		menu = '''
+			<ui>
+			 <menubar name="Menubar">
+			  <menu action="Menu">
+			   <menuitem action="About"/>
+			   <separator/>
+			   <menuitem action="Quit"/>
+			  </menu>
+			 </menubar>
+			</ui>
+		'''
+		actions = [
+			('Menu',  None, 'Menu'),
+			('About', gtk.STOCK_ABOUT, '_About', None, 'About pyGtranslator', self.on_about),
+			('Quit', gtk.STOCK_QUIT, '_Exit', None, 'Exit', self.parent.on_exit)]
+		ag = gtk.ActionGroup('Actions')
+		ag.add_actions(actions)
+		self.manager = gtk.UIManager()
+		self.manager.insert_action_group(ag, 0)
+		self.manager.add_ui_from_string(menu)
+		self.menu = self.manager.get_widget('/Menubar/Menu/Quit').props.parent
+		self.set_from_file(_icon)
+		self.set_tooltip('pyGtranslator')
+		self.set_visible(True)
+		self.connect('popup-menu', self.on_popup_menu)
+		self.connect('activate', self.on_active)
+
+	def on_popup_menu(self, status, button, time):
+		self.menu.popup(None, None, None, button, time)
+
+	def on_active(self, data):
+		if self.parent.window.get_property('visible'): self.parent.window.hide()
+		else: self.parent.window.show_all()
+
+	def on_about(self, data):
+		global __version__
+		dialog = gtk.AboutDialog()
+		dialog.set_name('pyGtranslator')
+		dialog.set_version(__version__)
+		dialog.set_comments('GUI tool for Google translate')
+		dialog.set_website('xrado.hopto.org')
+		dialog.run()
+		dialog.destroy()
+
+
+class PyGTranslator:
+	def __init__(self):
+		global _glade,_icon,config
+		self.config = config;
+		self.xml = gtk.glade.XML(_glade, 'window')
+		self.window = self.xml.get_widget('window')
+		self.window.set_icon_from_file(_icon)
+		
+		self.combo = self.xml.get_widget('combobox1')
+		f_list = gtk.ListStore(str,str)
+		self.FROM = self.get_langs("<select name=sl id=old_sl tabindex=0>");
+		self.FROM = sorted( self.FROM.items(), key=lambda x: x[1] )
+		for a in self.FROM: f_list.append([a[1],a[0]])
+		cell = gtk.CellRendererText()
+		self.combo.pack_start(cell)
+		self.combo.add_attribute(cell, 'text', 0)
+		self.combo.set_model(f_list)
+		self.combo.set_active(int(config.get("general", "from")))
+		
+		self.combo2 = self.xml.get_widget('combobox2')
+		f_list2 = gtk.ListStore(str,str)
+		self.TO = self.get_langs("<select name=tl id=old_tl tabindex=0>");
+		self.TO = sorted( self.TO.items(), key=lambda x: x[1] )
+		for a in self.TO: f_list2.append([a[1],a[0]])
+		cell2 = gtk.CellRendererText()
+		self.combo2.pack_start(cell2)
+		self.combo2.add_attribute(cell2, 'text', 0)
+		self.combo2.set_model(f_list2)
+		self.combo2.set_active(int(config.get("general", "to")))
+		
+		self.textview1 = self.xml.get_widget('textview1')
+		self.textviewbuff1=gtk.TextBuffer(None)
+		self.textview1.set_buffer(self.textviewbuff1)
+		
+		self.textview2 = self.xml.get_widget('textview2')
+		self.textviewbuff2=gtk.TextBuffer(None)
+		self.textview2.set_buffer(self.textviewbuff2)
+		
+		self.xml.signal_autoconnect(self)
+		self.window.show_all()
+		self.tray = TrayIcon(self)
+		
+	def get_translation(self,params):
+		u = urlparse('http://translate.google.com/translate_a/t')
+		params = urlencode(params)
+		headers = {
+			'Host'              : 'translate.google.com',
+			'User-Agent'        : 'Mozilla/5.0',
+			'Accept'            : 'text/xml,application/xml,application/xhtml+xml,text/html',
+			'Referer'           : 'http://translate.google.com/translate_t',
+			'Content-Type'      : 'application/x-www-form-urlencoded'}
+		try:
+			conn = httplib.HTTPConnection(u[1])
+			conn.request("POST", u[2], params, headers)
+			resp = conn.getresponse()
+		except:
+			return "can't connect to google translate"
+		header = resp.getheader("Content-Type")
+		charset= header[header.index("charset=")+8:]
+		if resp.status == 200:
+			d = resp.read()
+			data = d.decode(charset)
+			if data[0] == "[":
+				data = data.strip('[]').split(',')
+				for d in data:
+					d = d.strip('"')
+					if len(d)==2: lang = d
+					else: text = d
+				return '('+lang+') -> '+text
+			else: 
+				return data.strip('"')
+		else:
+			return "error occurred"
+	
+	def get_langs(self,start):
+		u = urlparse('http://translate.google.com/translate_t')
+		data = {}
+		try:
+			conn = httplib.HTTPConnection(u[1])
+			conn.request("GET", u[2])
+			resp = conn.getresponse()
+		except:
+			dialog = gtk.AboutDialog()
+			dialog.set_name('error')
+			dialog.set_comments("can't connect to google translate")
+			dialog.run()
+			dialog.destroy()
+			sys.exit(1)
+			
+		if resp.status == 200:
+			result = resp.read()
+			result = result[result.index(start):]
+			result = result[result.index("<option"):]
+			result = result[:result.index("</select>")]
+			rows=result.split("</option>")
+			for row in rows:
+				try:
+					data[row[row.index('"')+1:row.rindex('"')]] = row[row.index('>')+1:]
+				except:
+					pass
+		return data
+
+	def do_translate(self, widget):
+		model = self.combo.get_model()
+		index = self.combo.get_active()
+		model2 = self.combo2.get_model()
+		index2 = self.combo2.get_active()
+		post = {}
+		post['client'] = 't'
+		post['sl'] = model[index][1]
+		post['tl'] = model2[index2][1]
+		post['text'] = self.textviewbuff1.get_text(*self.textviewbuff1.get_bounds())
+		trans = self.get_translation(post)
+		if trans: self.textviewbuff2.set_text(trans.replace('\\n ',"\n"))
+	
+	def on_switch(self, widged):
+		model = self.combo.get_model()
+		index = self.combo.get_active()
+		model2 = self.combo2.get_model()
+		index2 = self.combo2.get_active()
+		if not model[index][1]=='auto':
+			if dict(self.TO)[model[index][1]] and dict(self.FROM)[model2[index2][1]]:
+				p=0
+				for i in self.TO: 
+					if i[0]==model[index][1]: self.combo2.set_active(p)
+					p+=1
+				p=0
+				for i in self.FROM: 
+					if i[0]==model2[index2][1]: self.combo.set_active(p)
+					p+=1
+				text = self.textviewbuff1.get_text(*self.textviewbuff1.get_bounds())
+				text2 = self.textviewbuff2.get_text(*self.textviewbuff2.get_bounds())
+				self.textviewbuff1.set_text(text2)
+				self.textviewbuff2.set_text(text)
+	
+	def on_hide(self, widget, event):
+		self.window.hide()
+		return True;
+		
+	def on_exit(self, widget):
+		global _ini
+		self.config.set('general', 'from', self.combo.get_active())
+		self.config.set('general', 'to', self.combo2.get_active())
+		self.config.write(open(_ini, 'w'))
+		gc.collect()
+		gtk.main_quit()
+
+	def main(self):
+		gtk.main()
+
+
+if __name__ == '__main__':
+	try:
+		PyGTranslator().main()
+	except KeyboardInterrupt:
+		pass

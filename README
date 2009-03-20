@@ -1,0 +1,12 @@
+pyGtranslator, GUI tool for Google translate
+Copyright 2008 Radovan Lozej <radovan dot lozej at gmail dot com>
+Website: http://xrado.hopto.org
+
+icon from Tango Desktop Project
+
+REQUIREMENTS:
+PyGTK,GTK,python
+
+INSTALLATION:
+as root run
+python setup.py install
