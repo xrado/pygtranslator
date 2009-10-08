@@ -222,8 +222,8 @@ class PyGTranslator:
 		post['sl'] = model[index][1]
 		post['tl'] = model2[index2][1]
 		post['text'] = self.textviewbuff1.get_text(*self.textviewbuff1.get_bounds())
-		trans = self.get_translation(post)
-		if trans: self.textviewbuff2.set_text(trans.replace('\\n ',"\n"))
+		trans = self.get_translation(post).decode('string_escape')
+		if trans: self.textviewbuff2.set_text(trans)
 	
 	def on_switch(self, widged):
 		model = self.combo.get_model()
