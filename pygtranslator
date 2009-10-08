@@ -3,7 +3,7 @@
 __version__ = "0.2"
 __author__ = "xrado"
 
-import sys,os
+import sys,os,re
 
 ## Windows 
 if sys.platform == 'win32':
@@ -118,7 +118,7 @@ class PyGTranslator:
 		
 		self.combo = self.xml.get_widget('combobox1')
 		f_list = gtk.ListStore(str,str)
-		self.FROM = self.get_langs("<select name=sl id=old_sl tabindex=0>");
+		self.FROM = self.get_langs("<selectfrom>");
 		self.FROM = sorted( self.FROM.items(), key=lambda x: x[1] )
 		for a in self.FROM: f_list.append([a[1],a[0]])
 		cell = gtk.CellRendererText()
@@ -129,7 +129,7 @@ class PyGTranslator:
 		
 		self.combo2 = self.xml.get_widget('combobox2')
 		f_list2 = gtk.ListStore(str,str)
-		self.TO = self.get_langs("<select name=tl id=old_tl tabindex=0>");
+		self.TO = self.get_langs("<selectto>");
 		self.TO = sorted( self.TO.items(), key=lambda x: x[1] )
 		for a in self.TO: f_list2.append([a[1],a[0]])
 		cell2 = gtk.CellRendererText()
@@ -199,6 +199,8 @@ class PyGTranslator:
 			
 		if resp.status == 200:
 			result = resp.read()
+			result = re.sub('\<select\ name\=sl.*?\>','<selectfrom>',result)
+			result = re.sub('\<select\ name\=tl.*?\>','<selectto>',result)
 			result = result[result.index(start):]
 			result = result[result.index("<option"):]
 			result = result[:result.index("</select>")]
