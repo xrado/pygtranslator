@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-__version__ = "0.2"
+__version__ = "0.3"
 __author__ = "xrado"
 
-import sys,os,re
+import sys,os,re,json
 
 ## Windows 
 if sys.platform == 'win32':
@@ -163,24 +163,13 @@ class PyGTranslator:
 			conn = httplib.HTTPConnection(u[1])
 			conn.request("POST", u[2], params, headers)
 			resp = conn.getresponse()
-		except:
+		except: 
 			return "can't connect to google translate"
-		header = resp.getheader("Content-Type")
-		charset= header[header.index("charset=")+8:]
 		if resp.status == 200:
-			d = resp.read()
-			data = d.decode(charset)
-			if data[0] == "[":
-				data = data.strip('[]').split(',')
-				for d in data:
-					d = d.strip('"')
-					if len(d)==2: lang = d
-					else: text = d
-				return '('+lang+') -> '+text
-			else: 
-				return data.strip('"')
-		else:
-			return "error occurred"
+			d = json.loads(resp.read())
+			if type(d) == list: return '('+d[1]+') -> '+d[0]
+			else: return d
+		else: return "error occurred"
 	
 	def get_langs(self,start):
 		u = urlparse('http://translate.google.com/translate_t')
@@ -206,6 +195,7 @@ class PyGTranslator:
 			result = result[:result.index("</select>")]
 			rows=result.split("</option>")
 			for row in rows:
+				if "disabled" in row: continue
 				try:
 					data[row[row.index('"')+1:row.rindex('"')]] = row[row.index('>')+1:]
 				except:
