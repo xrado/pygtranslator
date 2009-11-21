@@ -24,7 +24,7 @@ opts = {
 
 setup(
 	name = 'pyGtranslator',
-	version = '0.3',
+	version = '0.4',
 	description = 'GUI tool for google translator',
 	author = 'xrado',
 	url = 'http://xrado.hopto.org',

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-__version__ = "0.3"
+__version__ = "0.4"
 __author__ = "xrado"
 
 import sys,os,re,json
@@ -118,7 +118,7 @@ class PyGTranslator:
 		
 		self.combo = self.xml.get_widget('combobox1')
 		f_list = gtk.ListStore(str,str)
-		self.FROM = self.get_langs("<selectfrom>");
+		self.FROM = self.get_langs("sl");
 		self.FROM = sorted( self.FROM.items(), key=lambda x: x[1] )
 		for a in self.FROM: f_list.append([a[1],a[0]])
 		cell = gtk.CellRendererText()
@@ -129,7 +129,7 @@ class PyGTranslator:
 		
 		self.combo2 = self.xml.get_widget('combobox2')
 		f_list2 = gtk.ListStore(str,str)
-		self.TO = self.get_langs("<selectto>");
+		self.TO = self.get_langs("tl");
 		self.TO = sorted( self.TO.items(), key=lambda x: x[1] )
 		for a in self.TO: f_list2.append([a[1],a[0]])
 		cell2 = gtk.CellRendererText()
@@ -151,28 +151,30 @@ class PyGTranslator:
 		self.tray = TrayIcon(self)
 		
 	def get_translation(self,params):
-		u = urlparse('http://translate.google.com/translate_a/t')
-		params = urlencode(params)
+		u = urlparse('http://ajax.googleapis.com/ajax/services/language/translate')
 		headers = {
-			'Host'              : 'translate.google.com',
+			'Host'              : u[1],
 			'User-Agent'        : 'Mozilla/5.0',
 			'Accept'            : 'text/xml,application/xml,application/xhtml+xml,text/html',
-			'Referer'           : 'http://translate.google.com/translate_t',
-			'Content-Type'      : 'application/x-www-form-urlencoded'}
+			'Referer'           : 'http://translate.google.com/',
+			'Content-Type' : 'application/x-www-form-urlencoded' }
 		try:
 			conn = httplib.HTTPConnection(u[1])
-			conn.request("POST", u[2], params, headers)
+			conn.request("POST", u[2], urlencode(params), headers)
 			resp = conn.getresponse()
-		except: 
+		except:
 			return "can't connect to google translate"
 		if resp.status == 200:
 			d = json.loads(resp.read())
-			if type(d) == list: return '('+d[1]+') -> '+d[0]
-			else: return d
+			if d['responseStatus'] == 200 and 'responseData' in d:
+				d = d['responseData']
+				if 'detectedSourceLanguage' in d: return '('+d['detectedSourceLanguage']+') -> '+d['translatedText']
+				else: return d['translatedText']
+			else : return params['q']
 		else: return "error occurred"
 	
 	def get_langs(self,start):
-		u = urlparse('http://translate.google.com/translate_t')
+		u = urlparse('http://translate.google.com')
 		data = {}
 		try:
 			conn = httplib.HTTPConnection(u[1])
@@ -188,11 +190,8 @@ class PyGTranslator:
 			
 		if resp.status == 200:
 			result = resp.read()
-			result = re.sub('\<select\ name\=sl.*?\>','<selectfrom>',result)
-			result = re.sub('\<select\ name\=tl.*?\>','<selectto>',result)
-			result = result[result.index(start):]
+			result = result[result.index(re.search("<select.*?name="+start+".*?>",result).group(0)):result.index("</select>")]
 			result = result[result.index("<option"):]
-			result = result[:result.index("</select>")]
 			rows=result.split("</option>")
 			for row in rows:
 				if "disabled" in row: continue
@@ -207,12 +206,12 @@ class PyGTranslator:
 		index = self.combo.get_active()
 		model2 = self.combo2.get_model()
 		index2 = self.combo2.get_active()
-		post = {}
-		post['client'] = 't'
-		post['sl'] = model[index][1]
-		post['tl'] = model2[index2][1]
-		post['text'] = self.textviewbuff1.get_text(*self.textviewbuff1.get_bounds())
-		trans = self.get_translation(post).decode('string_escape')
+		post = {
+			'v': '1.0',
+			'q' : self.textviewbuff1.get_text(*self.textviewbuff1.get_bounds()),
+			'langpair': model[index][1]+'|'+model2[index2][1]
+		}
+		trans = self.get_translation(post)
 		if trans: self.textviewbuff2.set_text(trans)
 	
 	def on_switch(self, widged):

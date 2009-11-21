@@ -1,3 +1,9 @@
+* v 0.4 (21.11.2009)
+- updated due google translate site change
+
+* v 0.3 (03.10.2009)
+- added some regex for better parsing & matching 
+
 * v 0.2 (01.01.2009)
 - utf-8 characters works properly now
 - showing new lines fixed
