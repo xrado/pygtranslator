@@ -206,10 +206,12 @@ class PyGTranslator:
 		index = self.combo.get_active()
 		model2 = self.combo2.get_model()
 		index2 = self.combo2.get_active()
+		sl = model[index][1]
+		if sl == 'auto': sl = ''
 		post = {
 			'v': '1.0',
 			'q' : self.textviewbuff1.get_text(*self.textviewbuff1.get_bounds()),
-			'langpair': model[index][1]+'|'+model2[index2][1]
+			'langpair': sl+'|'+model2[index2][1]
 		}
 		trans = self.get_translation(post)
 		if trans: self.textviewbuff2.set_text(trans)
