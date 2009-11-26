@@ -3,7 +3,15 @@
 __version__ = "0.4"
 __author__ = "xrado"
 
-import sys,os,re,json
+import sys,os,re
+
+version = int(''.join(str(x) for x in sys.version_info[:2]))
+try:
+	if version < 26: import simplejson as json
+	else: import json
+except:
+	print "need json module"
+	os._exit(1)
 
 ## Windows 
 if sys.platform == 'win32':
