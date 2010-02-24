@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
-__version__ = "0.4"
+__version__ = "0.5"
 __author__ = "xrado"
 
 import sys,os,re
 
+## python 2.5 compatibility
 version = int(''.join(str(x) for x in sys.version_info[:2]))
 try:
 	if version < 26: import simplejson as json
@@ -243,6 +244,10 @@ class PyGTranslator:
 				text2 = self.textviewbuff2.get_text(*self.textviewbuff2.get_bounds())
 				self.textviewbuff1.set_text(text2)
 				self.textviewbuff2.set_text(text)
+	
+	def on_clear(self, widged):
+		self.textviewbuff1.set_text('')
+		self.textviewbuff2.set_text('')
 	
 	def on_hide(self, widget, event):
 		self.window.hide()
