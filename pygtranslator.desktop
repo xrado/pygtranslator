@@ -6,5 +6,6 @@ Terminal=false
 Type=Application
 Icon=pygtranslator
 Categories=GTK;Application;Utility;Accessories;
+Version=0.1
 Encoding=UTF-8
 
