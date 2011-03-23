@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-__version__ = "0.5"
+__version__ = "0.6"
 __author__ = "xrado"
 
-import sys,os,re
+import sys,os,re,urllib2
 
 ## python 2.5 compatibility
 version = int(''.join(str(x) for x in sys.version_info[:2]))
@@ -158,28 +158,18 @@ class PyGTranslator:
 		self.xml.signal_autoconnect(self)
 		self.window.show_all()
 		self.tray = TrayIcon(self)
-		
+
+
 	def get_translation(self,params):
-		u = urlparse('http://ajax.googleapis.com/ajax/services/language/translate')
-		headers = {
-			'Host'              : u[1],
-			'User-Agent'        : 'Mozilla/5.0',
-			'Accept'            : 'text/xml,application/xml,application/xhtml+xml,text/html',
-			'Referer'           : 'http://translate.google.com/',
-			'Content-Type' : 'application/x-www-form-urlencoded' }
 		try:
-			conn = httplib.HTTPConnection(u[1])
-			conn.request("POST", u[2], urlencode(params), headers)
-			resp = conn.getresponse()
+			req = urllib2.Request('https://www.googleapis.com/language/translate/v2?'+urlencode(params))
+			resp = urllib2.urlopen(req)
 		except:
 			return "can't connect to google translate"
-		if resp.status == 200:
+
+		if resp.code == 200:
 			d = json.loads(resp.read())
-			if d['responseStatus'] == 200 and 'responseData' in d:
-				d = d['responseData']
-				if 'detectedSourceLanguage' in d: return '('+d['detectedSourceLanguage']+') -> '+d['translatedText']
-				else: return d['translatedText']
-			else : return params['q']
+			return d['data']['translations'][0]['translatedText']
 		else: return "error occurred"
 	
 	def get_langs(self,start):
@@ -218,9 +208,10 @@ class PyGTranslator:
 		sl = model[index][1]
 		if sl == 'auto': sl = ''
 		post = {
-			'v': '1.0',
-			'q' : self.textviewbuff1.get_text(*self.textviewbuff1.get_bounds()),
-			'langpair': sl+'|'+model2[index2][1]
+			'key' : 'AIzaSyDkh-a1alEv25TUloDIcQlDopp4ME5ZG1Y',
+			'q': self.textviewbuff1.get_text(*self.textviewbuff1.get_bounds()),
+			'source': sl,
+			'target': model2[index2][1]
 		}
 		trans = self.get_translation(post)
 		if trans: self.textviewbuff2.set_text(trans)

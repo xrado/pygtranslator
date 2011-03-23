@@ -3,7 +3,7 @@
 from distutils.core import setup, Extension
 
 setup(name='pyGtranslator',
-	version='0.5',
+	version='0.6',
 	description='GUI tool for Google translate',
 	author='Radovan Lozej',
 	author_email='radovan(dot)lozej(at)gmail(dot)com',
@@ -18,7 +18,7 @@ setup(name='pyGtranslator',
 		],
 	scripts = ['pygtranslator'],
 	data_files=[
-		("/usr/doc/pygtranslator-0.5", ["README"]),
+		("/usr/doc/pygtranslator", ["README"]),
 		("/usr/share/pygtranslator", ["pygtranslator.glade"]),
 		('/usr/share/applications', ['pygtranslator.desktop']),
 		('/usr/share/pixmaps', ['pygtranslator.png'])
